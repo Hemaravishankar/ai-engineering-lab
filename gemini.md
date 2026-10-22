@@ -1,28 +1,31 @@
-We are building a small Book Management API for an AI-led software development training project.
+Implement pagination for the existing GET /books endpoint.
 
-TASK 1 — BASELINE IMPLEMENTATION
+First, inspect the existing implementation and tests. Then propose a plan. Do not edit files until I approve the plan.
 
 Requirements:
-1. Inspect the existing repository before coding.
-2. Build an Express.js API with POST /books and GET /books.
-3. POST /books accepts a title and author.
-4. Reject missing or blank title and author values with HTTP 400.
-5. Return HTTP 201 when a book is created.
-6. Store books in memory for this training exercise.
-7. Add automated tests for successful creation, invalid input, and listing books.
-8. Add npm scripts to start the server and run tests.
-9. Use CommonJS and Node.js built-in test tools where practical.
-10. Do not add unnecessary dependencies or modify unrelated files.
 
-Before implementation:
-- Explain the proposed file structure and plan.
-- Identify any assumptions.
+1. Support page and limit query parameters.
+2. Defaults: page = 1 and limit = 10 when pagination parameters are omitted.
+3. Return only the requested page of books.
+4. Return HTTP 400 for invalid values, including zero, negative numbers, and non-numeric input.
+5. Preserve existing API behaviour when pagination parameters are omitted, except for the explicitly required default pagination behaviour.
+6. Add automated tests for default pagination, custom pagination, invalid values, and existing behaviour.
+7. Follow existing project conventions and error-handling patterns.
+8. Do not add dependencies or perform unrelated refactoring.
 
-After implementation:
-- Run the tests.
-- Report the files changed and actual test results.
-- Do not claim success for commands that were not executed.
+Acceptance criteria:
 
-For this first experiment, do not create or rely on GEMINI.md, AGENTS.md, or CLAUDE.md. We want to measure the baseline before adding repository instructions.
+- GET /books uses the documented default page and limit.
+- GET /books?page=2&limit=5 returns the correct second page.
+- Invalid page and limit values return HTTP 400.
+- Existing tests continue to pass.
+- New tests cover the requirements.
+- All relevant tests pass.
 
-Ask for approval before destructive commands or any operation outside this training workspace.
+Before implementation, show me:
+- The files you plan to change.
+- The proposed logic.
+- The test cases you will add.
+- Any ambiguity or compatibility risk.
+
+After approval, implement the smallest safe change, run the relevant tests, inspect the final diff, and report the actual results. Never claim a test passed unless you ran it successfully.
