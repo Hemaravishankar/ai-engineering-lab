@@ -1,6 +1,7 @@
 const express = require("express");
 
 const app = express();
+app.set("query parser", "extended");
 app.use(express.json());
 
 const books = [];
@@ -49,6 +50,14 @@ app.post("/books", (req, res) => {
 });
 
 app.get("/books", (req, res) => {
+  const { search } = req.query;
+
+  if (search !== undefined && typeof search !== "string") {
+    return res.status(400).json({
+      error: "Invalid search parameter",
+    });
+  }
+
   let page = 1;
   let limit = 10;
 
@@ -72,9 +81,20 @@ app.get("/books", (req, res) => {
     limit = parsedLimit;
   }
 
+  let filteredBooks = books;
+  if (typeof search === "string") {
+    const trimmed = search.trim();
+    if (trimmed !== "") {
+      const query = trimmed.toLowerCase();
+      filteredBooks = books.filter((book) =>
+        book.title.toLowerCase().includes(query)
+      );
+    }
+  }
+
   const startIndex = (page - 1) * limit;
   const endIndex = startIndex + limit;
-  return res.json(books.slice(startIndex, endIndex));
+  return res.json(filteredBooks.slice(startIndex, endIndex));
 });
 
 if (require.main === module) {

@@ -161,4 +161,159 @@ describe("Book API", () => {
       expect(resLimitEmpty.body).toHaveProperty("error");
     });
   });
+
+  describe("Search books by title", () => {
+    it("seeds additional books for search tests", async () => {
+      const res1 = await request(app)
+        .post("/books")
+        .send({ title: "The Clean Coder", author: "Robert Martin" });
+      expect(res1.status).toBe(201);
+
+      const res2 = await request(app)
+        .post("/books")
+        .send({ title: "Refactoring", author: "Martin Fowler" });
+      expect(res2.status).toBe(201);
+    });
+
+    it("searches for a complete title", async () => {
+      const response = await request(app).get("/books?search=Refactoring");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].title).toBe("Refactoring");
+      expect(response.body[0].author).toBe("Martin Fowler");
+    });
+
+    it("searches using only part of a title", async () => {
+      const response = await request(app).get("/books?search=Clean");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(2);
+      const titles = response.body.map((b) => b.title);
+      expect(titles).toContain("Clean Code");
+      expect(titles).toContain("The Clean Coder");
+    });
+
+    it("searches case-insensitively", async () => {
+      const responseUpper = await request(app).get("/books?search=REFACTORING");
+      expect(responseUpper.status).toBe(200);
+      expect(responseUpper.body).toHaveLength(1);
+      expect(responseUpper.body[0].title).toBe("Refactoring");
+
+      const responseMixed = await request(app).get("/books?search=cLeAn");
+      expect(responseMixed.status).toBe(200);
+      expect(responseMixed.body).toHaveLength(2);
+    });
+
+    it("returns an empty array when no books match the search query", async () => {
+      const response = await request(app).get("/books?search=NonExistentTitle");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(0);
+    });
+
+    it("treats an empty search string as no search filter", async () => {
+      const response = await request(app).get("/books?search=");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      // Default limit of 10 applied across all books
+      expect(response.body).toHaveLength(10);
+      expect(response.body[0].title).toBe("Clean Code");
+    });
+
+    it("treats a whitespace-only search string as no search filter", async () => {
+      const response = await request(app).get("/books?search=%20%20%20");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(10);
+      expect(response.body[0].title).toBe("Clean Code");
+    });
+
+    it("trims leading and trailing whitespace from search terms", async () => {
+      const response = await request(app).get("/books?search=%20Refactoring%20");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].title).toBe("Refactoring");
+    });
+
+    it("rejects duplicate search query parameters with HTTP 400", async () => {
+      const response = await request(app).get("/books?search=clean&search=code");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("Invalid search parameter");
+    });
+
+    it("rejects non-string search query parameter (object) with HTTP 400", async () => {
+      const response = await request(app).get("/books?search[foo]=bar");
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toBe("Invalid search parameter");
+    });
+
+    it("combines search with custom page and limit parameters", async () => {
+      // Books matching "Book" are Book 2 through Book 15 (14 books total)
+      const page1 = await request(app).get("/books?search=Book&page=1&limit=5");
+      expect(page1.status).toBe(200);
+      expect(page1.body).toHaveLength(5);
+      expect(page1.body[0].title).toBe("Book 2");
+      expect(page1.body[4].title).toBe("Book 6");
+
+      const page2 = await request(app).get("/books?search=Book&page=2&limit=5");
+      expect(page2.status).toBe(200);
+      expect(page2.body).toHaveLength(5);
+      expect(page2.body[0].title).toBe("Book 7");
+      expect(page2.body[4].title).toBe("Book 11");
+
+      const page3 = await request(app).get("/books?search=Book&page=3&limit=5");
+      expect(page3.status).toBe(200);
+      expect(page3.body).toHaveLength(4);
+      expect(page3.body[0].title).toBe("Book 12");
+      expect(page3.body[3].title).toBe("Book 15");
+
+      const page4 = await request(app).get("/books?search=Book&page=4&limit=5");
+      expect(page4.status).toBe(200);
+      expect(page4.body).toHaveLength(0);
+    });
+
+    it("confirms filtering is applied before pagination", async () => {
+      // "Refactoring" was added at the very end (index 16 of 17 books)
+      // If pagination were applied before filtering with limit=1, the first book ("Clean Code")
+      // would be selected, and searching for "Refactoring" would return 0 items.
+      const response = await request(app).get("/books?search=Refactoring&limit=1");
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].title).toBe("Refactoring");
+    });
+
+    it("rejects invalid pagination parameters when search is supplied", async () => {
+      const resPageInvalid = await request(app).get("/books?search=clean&page=0");
+      expect(resPageInvalid.status).toBe(400);
+      expect(resPageInvalid.body).toHaveProperty("error");
+
+      const resLimitInvalid = await request(app).get("/books?search=clean&limit=-5");
+      expect(resLimitInvalid.status).toBe(400);
+      expect(resLimitInvalid.body).toHaveProperty("error");
+    });
+
+    it("preserves backward compatibility when search parameter is omitted", async () => {
+      const response = await request(app).get("/books");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(10);
+      expect(response.body[0]).toHaveProperty("id");
+      expect(response.body[0]).toHaveProperty("title");
+      expect(response.body[0]).toHaveProperty("author");
+    });
+  });
 });
